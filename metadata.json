@@ -1,0 +1,6 @@
+{
+  "name": "CerviXAI - Cervical Cell Screening & Explainable AI",
+  "description": "From cellular patterns to clearer decisions. Multi-scale attention Pap smear screening platform with Grad-CAM visual interpretability and uncertainty-aware selective referral.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

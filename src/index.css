@@ -1,0 +1,70 @@
+@import "tailwindcss";
+
+@theme {
+  --font-serif: "Newsreader", Georgia, serif;
+  --font-sans: "DM Sans", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  --color-ivory: #F5F0E8;
+  --color-ivory-light: #FAF7F2;
+  --color-ivory-dark: #ECE4D6;
+  --color-terracotta: #B85C38;
+  --color-terracotta-dark: #964726;
+  --color-terracotta-light: #D47B57;
+  --color-olive: #6B705C;
+  --color-olive-dark: #535846;
+  --color-olive-light: #899076;
+  --color-charcoal: #2F3A3D;
+  --color-charcoal-muted: #5B6B6F;
+}
+
+@layer base {
+  body {
+    background-color: #F5F0E8;
+    color: #2F3A3D;
+    font-family: var(--font-sans);
+  }
+  
+  h1, h2, h3, .font-display {
+    font-family: var(--font-serif);
+  }
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 10mm 12mm 10mm 12mm;
+  }
+  
+  html, body {
+    background: #ffffff !important;
+    color: #2F3A3D !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    font-size: 11pt !important;
+  }
+
+  .print\:hidden {
+    display: none !important;
+  }
+
+  .print\:block {
+    display: block !important;
+  }
+
+  .print\:p-0 {
+    padding: 0 !important;
+  }
+
+  .print\:border-0 {
+    border: none !important;
+  }
+
+  .print\:shadow-none {
+    box-shadow: none !important;
+  }
+
+  .break-inside-avoid {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+}
