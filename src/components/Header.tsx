@@ -1,5 +1,5 @@
-import React from 'react';
-import { ActiveScreen } from '../types';
+import React, { useState, useRef, useEffect } from 'react';
+import { ActiveScreen, DoctorUser } from '../types';
 import { 
   Microscope, 
   LayoutDashboard, 
@@ -9,7 +9,11 @@ import {
   MessageSquareText, 
   LogOut, 
   ShieldCheck,
-  UserCheck
+  UserCheck,
+  Building2,
+  ChevronDown,
+  Mail,
+  FileBadge
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -17,6 +21,7 @@ interface HeaderProps {
   setCurrentScreen: (screen: ActiveScreen) => void;
   isLoggedIn: boolean;
   onLogout: () => void;
+  doctor?: DoctorUser | null;
   unreadChatCount?: number;
   onToggleChat: () => void;
   isChatOpen: boolean;
@@ -27,12 +32,42 @@ export const Header: React.FC<HeaderProps> = ({
   setCurrentScreen,
   isLoggedIn,
   onLogout,
+  doctor,
   onToggleChat,
   isChatOpen,
 }) => {
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
+        setIsProfileMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   if (!isLoggedIn && currentScreen === 'login') {
     return null;
   }
+
+  // Fallbacks if doctor is not yet loaded
+  const docName = doctor?.name || 'Dr. Authenticated Clinician';
+  const docSpec = doctor?.specialization || 'MD Cytopathology';
+  const docHospital = doctor?.hospital || 'Clinical Cytopathology Laboratory';
+  const docReg = doctor?.regNumber || 'MCI-VERIFIED';
+
+  // Compute initials for badge
+  const initials = docName
+    .replace(/^Dr\.?\s*/i, '')
+    .split(' ')
+    .map((n) => n[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join('')
+    .toUpperCase() || 'DR';
 
   // Required navigation order:
   // CerviXAI Logo -> Dashboard -> Screen New Slide -> Patient Registry -> Research & News -> AI Copilot -> User Profile
@@ -110,30 +145,82 @@ export const Header: React.FC<HeaderProps> = ({
             </nav>
 
             {/* User Profile (ordered after AI Copilot) */}
-            <div className="flex items-center pl-2 ml-1 border-l border-[#DCD4C7] space-x-2">
-              <div 
+            <div className="relative flex items-center pl-2 ml-1 border-l border-[#DCD4C7] space-x-2" ref={profileMenuRef}>
+              <button
+                type="button"
                 id="user-profile-badge"
-                className="flex items-center text-left py-1 px-2 rounded-md hover:bg-[#ECE4D6]/60 transition-colors cursor-default"
-                title="Logged in Clinician Profile"
+                onClick={() => setIsProfileMenuOpen((prev) => !prev)}
+                className="flex items-center text-left py-1.5 px-2.5 rounded-lg hover:bg-[#ECE4D6]/70 transition-colors cursor-pointer group"
+                title="Click to view logged-in clinician profile"
               >
-                <div className="w-8 h-8 rounded-full bg-[#6B705C]/20 border border-[#6B705C]/40 flex items-center justify-center text-[#535846] shrink-0">
-                  <UserCheck className="w-4 h-4" />
+                <div className="w-8 h-8 rounded-full bg-[#B85C38]/15 border border-[#B85C38]/40 flex items-center justify-center text-[#B85C38] font-bold text-xs shrink-0">
+                  {initials}
                 </div>
-                <div className="ml-2 hidden lg:block">
-                  <div className="text-xs font-semibold text-[#2F3A3D]">Dr. Ananya Sharma</div>
+                <div className="ml-2 hidden lg:block text-left">
+                  <div className="text-xs font-semibold text-[#2F3A3D] group-hover:text-[#B85C38] transition-colors flex items-center">
+                    <span>{docName}</span>
+                    <ChevronDown className="w-3 h-3 ml-1 text-[#5B6B6F]" />
+                  </div>
                   <div className="text-[10px] text-[#5B6B6F] flex items-center">
                     <ShieldCheck className="w-3 h-3 mr-0.5 text-[#6B705C]" />
-                    MD Cytopathology
+                    <span className="truncate max-w-[130px]">{docSpec}</span>
                   </div>
                 </div>
-              </div>
+              </button>
 
-              {/* Logout button */}
+              {/* Profile Dropdown Menu */}
+              {isProfileMenuOpen && (
+                <div className="absolute right-0 top-full mt-2 w-72 rounded-xl bg-[#FAF7F2] border border-[#DCD4C7] shadow-lg py-3 px-3 z-50 animate-in fade-in slide-in-from-top-1">
+                  <div className="flex items-center space-x-3 pb-3 border-b border-[#DCD4C7]/80">
+                    <div className="w-10 h-10 rounded-full bg-[#B85C38] text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0">
+                      {initials}
+                    </div>
+                    <div className="overflow-hidden">
+                      <div className="text-xs font-bold text-[#2F3A3D] truncate">{docName}</div>
+                      <div className="text-[11px] text-[#6B705C] font-medium">{docSpec}</div>
+                    </div>
+                  </div>
+
+                  <div className="py-2.5 space-y-1.5 text-xs text-[#5B6B6F] border-b border-[#DCD4C7]/80">
+                    <div className="flex items-center space-x-2">
+                      <Building2 className="w-3.5 h-3.5 text-[#6B705C] shrink-0" />
+                      <span className="truncate text-[#2F3A3D]">{docHospital}</span>
+                    </div>
+                    <div className="flex items-center space-x-2 font-mono text-[11px]">
+                      <FileBadge className="w-3.5 h-3.5 text-[#6B705C] shrink-0" />
+                      <span>Reg: <strong className="text-[#2F3A3D]">{docReg}</strong></span>
+                    </div>
+                    {doctor?.email && (
+                      <div className="flex items-center space-x-2 text-[11px]">
+                        <Mail className="w-3.5 h-3.5 text-[#6B705C] shrink-0" />
+                        <span className="truncate">{doctor.email}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      id="profile-dropdown-logout-btn"
+                      onClick={() => {
+                        setIsProfileMenuOpen(false);
+                        onLogout();
+                      }}
+                      className="w-full flex items-center justify-center px-3 py-1.5 rounded-md text-xs font-medium text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors cursor-pointer"
+                    >
+                      <LogOut className="w-3.5 h-3.5 mr-1.5" />
+                      Sign Out Active Session
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Direct Logout button */}
               <button
                 id="header-logout-btn"
                 onClick={onLogout}
-                className="p-2 text-[#5B6B6F] hover:text-[#B85C38] hover:bg-[#ECE4D6] rounded-md transition-colors"
-                title="Sign Out"
+                className="p-2 text-[#5B6B6F] hover:text-[#B85C38] hover:bg-[#ECE4D6] rounded-md transition-colors cursor-pointer"
+                title="Sign Out Active Session"
               >
                 <LogOut className="w-4 h-4" />
               </button>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ScreeningRecord, ActiveScreen } from '../types';
+import { ScreeningRecord, ActiveScreen, DoctorUser } from '../types';
 import { 
   AlertTriangle, 
   CheckCircle2, 
@@ -9,22 +9,24 @@ import {
   FileText, 
   ArrowRight, 
   Microscope, 
-  UserCheck,
-  Stethoscope,
-  Info,
-  Check
+  UserCheck, 
+  Stethoscope, 
+  Info, 
+  Check 
 } from 'lucide-react';
 
 interface UncertaintyScreenProps {
   record: ScreeningRecord;
   onUpdateRecord: (updated: ScreeningRecord) => void;
   onNavigate: (screen: ActiveScreen) => void;
+  doctor?: DoctorUser | null;
 }
 
 export const UncertaintyScreen: React.FC<UncertaintyScreenProps> = ({
   record,
   onUpdateRecord,
   onNavigate,
+  doctor,
 }) => {
   const [doctorNotes, setDoctorNotes] = useState<string>(
     record.doctorNotes || (record.referToDoctor 
@@ -288,7 +290,9 @@ export const UncertaintyScreen: React.FC<UncertaintyScreenProps> = ({
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 border-t border-[#DCD4C7]">
           <div className="text-xs text-[#5B6B6F] flex items-center">
             <UserCheck className="w-4 h-4 mr-1 text-[#6B705C]" />
-            <span>Authenticated: Dr. Ananya Sharma, MD Pathology (AIIMS)</span>
+            <span>
+              Authenticated: {doctor?.name || 'Dr. Authenticated Clinician'}, {doctor?.specialization || 'MD Cytopathology'} ({doctor?.hospital || 'Clinical Laboratory'})
+            </span>
           </div>
 
           <button

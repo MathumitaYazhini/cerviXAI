@@ -108,10 +108,17 @@ export const ChatbotDrawer: React.FC<ChatbotDrawerProps> = ({
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (err) {
       console.error('Chat error:', err);
+      const queryLower = text.toLowerCase();
+      let fallbackContent = `Under The Bethesda System 2014, **${activeRecord ? activeRecord.predictedClass : 'cervical cytology'}** requires careful correlation between nuclear-to-cytoplasmic (N:C) ratio and chromatin distribution. When uncertainty exceeds 0.20 entropy, selective prediction defaults to manual cytopathologist review.`;
+      
+      if (queryLower.includes('hotspot') || queryLower.includes('grad-cam') || queryLower.includes('heatmap')) {
+        fallbackContent = `Highlighted regions indicate areas that contributed strongly to the model's prediction. In this region, the model's attention is associated with the morphological characteristics identified during analysis (such as nuclear enlargement, hyperchromasia, and nuclear membrane irregularity). Model attention was concentrated primarily on nuclear regions showing features associated with the predicted classification (${activeRecord?.predictedClass || 'TBS category'}). AI-generated findings are intended to support qualified clinical review and should not be used as a standalone diagnosis.`;
+      }
+
       const fallbackMessage: ChatMessage = {
         id: `assistant-${Date.now()}`,
         role: 'assistant',
-        content: `Under The Bethesda System 2014, **${activeRecord ? activeRecord.predictedClass : 'cervical cytology'}** requires careful correlation between nuclear-to-cytoplasmic (N:C) ratio and chromatin distribution. When uncertainty exceeds 0.20 entropy, selective prediction defaults to manual cytopathologist review.`,
+        content: fallbackContent,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
       setMessages((prev) => [...prev, fallbackMessage]);

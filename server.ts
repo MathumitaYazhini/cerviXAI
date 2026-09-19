@@ -135,8 +135,8 @@ app.post('/api/gemini/chat', async (req, res) => {
       // Fallback simulated intelligent clinical cytopathology responses
       const queryLower = (message || '').toLowerCase();
       let reply = '';
-      if (queryLower.includes('heatmap') || queryLower.includes('grad-cam')) {
-        reply = `The Grad-CAM++ visualization maps the gradient activations from the final convolutional layer back to the input cell image. In this sample, the warm terracotta/red hotspots pinpoint the hyperchromatic nucleus and irregular nuclear border, demonstrating that the model is correctly prioritizing diagnostic cytological hallmarks rather than background blood, neutrophils, or mucin.`;
+      if (queryLower.includes('heatmap') || queryLower.includes('grad-cam') || queryLower.includes('hotspot')) {
+        reply = `Highlighted regions indicate areas that contributed strongly to the model's prediction. In this region, the model's attention is associated with the morphological characteristics identified during analysis (such as nuclear enlargement, hyperchromatic chromatin distribution, and irregular nuclear envelope contour). Model attention was concentrated primarily on nuclear regions showing features associated with the predicted classification (${currentAnalysis?.predictedClass || 'abnormal lesion'}). AI-generated findings are intended to support qualified clinical review and should not be used as a standalone diagnosis.`;
       } else if (queryLower.includes('uncertain') || queryLower.includes('refer') || queryLower.includes('threshold')) {
         reply = `CerviXAI utilizes selective prediction with temperature scaling (T=1.35). When the model's calibrated confidence drops below 82% or the softmax entropy exceeds 0.18, the case is automatically flagged with 'Refer to Cytopathologist'. This safeguards against misclassifying borderline atypia (such as ASC-US versus reactive changes) and ensures that all ambiguous slides receive human expert verification.`;
       } else if (queryLower.includes('bethesda') || queryLower.includes('classification')) {

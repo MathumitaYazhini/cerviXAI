@@ -21,11 +21,16 @@ export interface AttentionFocalPoint {
   radius?: number; // percentage 0-100
   weight: number; // 0.0 - 1.0
   finding: string;
+  saliencyLevel?: 'High saliency' | 'Moderate saliency' | 'Low saliency';
+  morphologicalFeature?: string;
+  reason?: string;
 }
 
 export interface ScreeningRecord {
   id: string;
   sampleId: string;
+  caseId?: string; // e.g. CVX-2026-0001
+  doctorId?: string; // Links case to doctor account
   patientName: string;
   age: number;
   district: string;
@@ -38,11 +43,14 @@ export interface ScreeningRecord {
   hpvStatus?: 'HPV-16 Positive' | 'HPV-18 Positive' | 'High-Risk Non-16/18' | 'HPV Negative' | 'Awaiting PCR';
   predictedClass: BethesdaClass;
   classFullName: string;
-  confidence: number; // 0.0 - 1.0
+  confidence: number; // 0.0 - 1.0 (Raw confidence)
   calibratedConfidence: number; // 0.0 - 1.0 after temperature scaling
   temperatureFactor?: number;
   temperatureScaleFactor?: number; // e.g. 1.35
   uncertaintyScore: number; // entropy 0.0 - 1.0
+  uncertaintyThreshold?: number; // default 0.200
+  referralStatusLabel?: 'Review Recommended' | 'Model Prediction Stable';
+  referralStatusExplanation?: string;
   referToDoctor: boolean;
   referralReason: string;
   urgencyLevel: 'Routine' | 'Moderate' | 'Urgent' | 'Critical';
@@ -51,12 +59,32 @@ export interface ScreeningRecord {
   signedBy?: string;
   signedAt?: string;
   doctorNotes?: string;
+  clinicalNotes?: string;
+  specimenInfo?: string;
   clinicalSummary: string;
   cellularMorphology: CellularMorphology;
   attentionFocalPoints: AttentionFocalPoint[];
+  supportedMorphologicalFindings?: string[];
+  explainabilitySummary?: string;
   recommendation: string;
-  cellImageUrl?: string;
+  cellImageUrl?: string; // Original uploaded cytology image
+  heatmapImageUrl?: string; // Generated Grad-CAM++ attribution map (PNG)
+  gradCamComparisonUrl?: string; // Standard Grad-CAM map (PNG)
+  blendedHeatmapUrl?: string; // Original + Grad-CAM++ composite
   heatmapOverlaySvg?: string;
+}
+
+export interface DoctorUser {
+  id: string;
+  name: string;
+  email: string;
+  password?: string;
+  regNumber: string;
+  phone?: string;
+  hospital: string;
+  specialization: string;
+  role?: string;
+  createdAt?: string;
 }
 
 export interface NewsArticle {

@@ -1,6 +1,15 @@
-import React, { useState } from 'react';
-import { ActiveScreen, ScreeningRecord } from './types';
-import { INITIAL_SCREENING_RECORDS } from './data/mockData';
+import React, { useState, useEffect } from 'react';
+import { ActiveScreen, ScreeningRecord, DoctorUser } from './types';
+import { 
+  getActiveDoctorSession, 
+  saveActiveDoctorSession, 
+  clearActiveDoctorSession, 
+  getDoctorRecords, 
+  saveDoctorRecords,
+  DEMO_DOCTOR,
+  generateNextCaseId 
+} from './utils/authStorage';
+import { generateCellSvg } from './data/mockData';
 import { Header } from './components/Header';
 import { LoginScreen } from './components/LoginScreen';
 import { DashboardScreen } from './components/DashboardScreen';
@@ -15,27 +24,77 @@ import { ChatbotDrawer } from './components/ChatbotDrawer';
 import { ShieldCheck, Building2 } from 'lucide-react';
 
 export default function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(true);
-  const [doctorName, setDoctorName] = useState('Dr. Ananya Sharma, MD');
-  const [doctorRole, setDoctorRole] = useState('Cytopathologist');
-  // First page shown after login is Screen New Slide
-  const [currentScreen, setCurrentScreen] = useState<ActiveScreen>('upload');
-  const [records, setRecords] = useState<ScreeningRecord[]>(INITIAL_SCREENING_RECORDS);
-  const [selectedRecord, setSelectedRecord] = useState<ScreeningRecord>(INITIAL_SCREENING_RECORDS[0]);
+  // Session is restored if previously saved in localStorage
+  const [activeDoctor, setActiveDoctor] = useState<DoctorUser | null>(() => {
+    return getActiveDoctorSession();
+  });
+
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
+    return !!getActiveDoctorSession();
+  });
+
+  // Default to 'login' screen on startup if not authenticated; 'dashboard' if already logged in
+  const [currentScreen, setCurrentScreen] = useState<ActiveScreen>(() => {
+    return getActiveDoctorSession() ? 'dashboard' : 'login';
+  });
+
+  // Doctor-isolated records stored in localStorage
+  const [records, setRecords] = useState<ScreeningRecord[]>(() => {
+    const session = getActiveDoctorSession();
+    return session ? getDoctorRecords(session.id) : [];
+  });
+
+  const [selectedRecord, setSelectedRecord] = useState<ScreeningRecord | null>(() => {
+    const session = getActiveDoctorSession();
+    if (session) {
+      const recs = getDoctorRecords(session.id);
+      return recs[0] || null;
+    }
+    return null;
+  });
+
+  // Ensure records are synchronized with the active doctor account
+  useEffect(() => {
+    if (activeDoctor) {
+      const docRecords = getDoctorRecords(activeDoctor.id);
+      setRecords(docRecords);
+      setSelectedRecord((prev) => {
+        if (!prev && docRecords.length > 0) return docRecords[0];
+        if (prev && docRecords.some((r) => r.id === prev.id || r.caseId === prev.caseId)) return prev;
+        return docRecords[0] || null;
+      });
+    } else {
+      setRecords([]);
+      setSelectedRecord(null);
+    }
+  }, [activeDoctor?.id]);
+
   const [currentUploadData, setCurrentUploadData] = useState<UploadFormData | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [initialChatPrompt, setInitialChatPrompt] = useState<string>('');
 
-  const handleLogin = (name: string, role: string) => {
-    setDoctorName(name);
-    setDoctorRole(role);
+  // Handle successful login or account registration
+  const handleLoginSuccess = (doctor: DoctorUser, rememberMe: boolean) => {
+    setActiveDoctor(doctor);
     setIsLoggedIn(true);
-    // Mandatory flow: Login -> Screen New Slide
-    setCurrentScreen('upload');
+    saveActiveDoctorSession(doctor, rememberMe);
+
+    // Retrieve records belonging specifically to this doctor
+    const doctorRecords = getDoctorRecords(doctor.id);
+    setRecords(doctorRecords);
+    setSelectedRecord(doctorRecords[0] || null);
+
+    // Open the personalized doctor dashboard
+    setCurrentScreen('dashboard');
   };
 
+  // Functional logout
   const handleLogout = () => {
+    clearActiveDoctorSession();
+    setActiveDoctor(null);
     setIsLoggedIn(false);
+    setRecords([]);
+    setSelectedRecord(null);
     setCurrentScreen('login');
   };
 
@@ -44,7 +103,7 @@ export default function App() {
     setCurrentScreen('processing');
   };
 
-  const handleProcessingComplete = () => {
+  const handleProcessingComplete = (pipelineRecord?: ScreeningRecord) => {
     if (!currentUploadData) {
       setCurrentScreen('prediction');
       return;
@@ -57,7 +116,7 @@ export default function App() {
     let calConf = 0.89;
     let entropy = 0.08;
     let refer = true;
-    let urgency: 'Urgent' | 'Routine' | 'Elective' = 'Urgent';
+    let urgency: 'Urgent' | 'Moderate' | 'Routine' | 'Critical' = 'Urgent';
     let referralReason = 'High-grade dysplastic cellular pattern detected. High probability of HSIL requiring immediate colposcopy.';
     let recommendation = 'Urgent referral for colposcopy examination and directed cervical punch biopsy within 7-14 days.';
 
@@ -94,9 +153,14 @@ export default function App() {
       ? currentUploadData.age 
       : parseInt(String(currentUploadData.age), 10) || 35;
 
+    const doctorOwnerId = activeDoctor?.id || DEMO_DOCTOR.id;
+    const generatedCaseId = generateNextCaseId(doctorOwnerId);
+
     const newRecord: ScreeningRecord = {
-      id: `rec-${Date.now()}`,
-      sampleId: `CX-2026-${Math.floor(1000 + Math.random() * 9000)}`,
+      id: pipelineRecord?.id || `rec-${Date.now()}`,
+      caseId: generatedCaseId,
+      doctorId: doctorOwnerId,
+      sampleId: generatedCaseId,
       patientName: currentUploadData.patientName.trim() || 'Screened Patient',
       age: patientAge,
       district: currentUploadData.district.trim() || 'General District',
@@ -105,37 +169,48 @@ export default function App() {
       isAyushmanCovered: currentUploadData.isAyushmanCovered,
       subsidizedFeeInr: 150,
       screeningDate: new Date().toISOString().split('T')[0],
-      cellImageUrl: currentUploadData.imagePreview || undefined,
-      predictedClass: predClass,
-      classFullName,
-      confidence: conf,
-      calibratedConfidence: calConf,
+      cellImageUrl: pipelineRecord?.cellImageUrl || currentUploadData.imagePreview || ('data:image/svg+xml;utf8,' + encodeURIComponent(generateCellSvg(predClass, false))),
+      heatmapImageUrl: pipelineRecord?.heatmapImageUrl || ('data:image/svg+xml;utf8,' + encodeURIComponent(generateCellSvg(predClass, true))),
+      blendedHeatmapUrl: pipelineRecord?.blendedHeatmapUrl || pipelineRecord?.heatmapImageUrl || ('data:image/svg+xml;utf8,' + encodeURIComponent(generateCellSvg(predClass, true))),
+      predictedClass: pipelineRecord?.predictedClass || predClass,
+      classFullName: pipelineRecord?.classFullName || classFullName,
+      confidence: pipelineRecord?.confidence ?? conf,
+      calibratedConfidence: pipelineRecord?.calibratedConfidence ?? calConf,
       temperatureFactor: 1.35,
-      uncertaintyScore: entropy,
-      referToDoctor: refer,
-      urgencyLevel: urgency,
-      referralReason,
-      clinicalSummary: `Digital cytopathology evaluation reveals characteristic ${predClass} cellular morphology. Dual-scale attention highlights hyperchromatic nuclear atypia.`,
-      cellularMorphology: {
+      uncertaintyScore: pipelineRecord?.uncertaintyScore ?? entropy,
+      referToDoctor: pipelineRecord?.referToDoctor ?? refer,
+      urgencyLevel: (pipelineRecord?.urgencyLevel as any) || urgency,
+      referralReason: pipelineRecord?.referralReason || referralReason,
+      clinicalSummary: pipelineRecord?.clinicalSummary || `Digital cytopathology evaluation reveals characteristic ${predClass} cellular morphology. Dual-scale attention highlights hyperchromatic nuclear atypia.`,
+      cellularMorphology: pipelineRecord?.cellularMorphology || {
         nuclearEnlargement: predClass === 'NILM' ? 'Normal (~8µm)' : 'Enlarged 2.5-3x normal intermediate nucleus',
         chromatinPattern: predClass === 'NILM' ? 'Finely granular and evenly dispersed' : 'Coarse chromatin clumping with hyperchromasia',
         nuclearMembrane: predClass === 'NILM' ? 'Smooth, oval, uniform' : 'Irregular, notched, thickened contours',
         ncRatio: predClass === 'NILM' ? 'Normal low N:C ratio' : 'Significantly elevated N:C ratio',
         cytoplasm: 'Standard squamous differentiation',
       },
-      attentionFocalPoints: [
-        { x: 50, y: 50, weight: 0.94, label: 'Primary Nuclear Focus', finding: 'Hyperchromatic atypical chromatin distribution' },
-        { x: 42, y: 44, weight: 0.81, label: 'Nuclear Envelope', finding: 'Membrane contour irregularity and convolution' },
-        { x: 58, y: 56, weight: 0.72, label: 'Perinuclear Zone', finding: 'Cytoplasmic clearing / Halo interface' },
-      ],
-      recommendation,
+      attentionFocalPoints: (pipelineRecord?.attentionFocalPoints && pipelineRecord.attentionFocalPoints.length > 0)
+        ? pipelineRecord.attentionFocalPoints
+        : [
+            { x: 50, y: 50, weight: 0.94, label: 'Primary Nuclear Focus', finding: 'Hyperchromatic atypical chromatin distribution' },
+            { x: 42, y: 44, weight: 0.81, label: 'Nuclear Envelope', finding: 'Membrane contour irregularity and convolution' },
+            { x: 58, y: 56, weight: 0.72, label: 'Perinuclear Zone', finding: 'Cytoplasmic clearing / halo interface' },
+          ],
+      supportedMorphologicalFindings: pipelineRecord?.supportedMorphologicalFindings,
+      explainabilitySummary: pipelineRecord?.explainabilitySummary,
+      recommendation: pipelineRecord?.recommendation || recommendation,
       status: 'Pending Cytopathologist Review',
       cytopathologistSigned: false,
       signedBy: undefined,
       signedAt: undefined,
     };
 
-    setRecords((prev) => [newRecord, ...prev]);
+    setRecords((prev) => {
+      const updated = [newRecord, ...prev];
+      saveDoctorRecords(doctorOwnerId, updated);
+      return updated;
+    });
+
     setSelectedRecord(newRecord);
     // Mandatory workflow: Complete AI Analysis -> Review Prediction & Visual Attribution
     setCurrentScreen('prediction');
@@ -146,19 +221,44 @@ export default function App() {
     setCurrentScreen('prediction');
   };
 
+  const handleDeleteRecord = (recordId: string) => {
+    const doctorOwnerId = activeDoctor?.id || DEMO_DOCTOR.id;
+    setRecords((prev) => {
+      const updated = prev.filter((r) => r.id !== recordId && r.caseId !== recordId);
+      saveDoctorRecords(doctorOwnerId, updated);
+      return updated;
+    });
+
+    setSelectedRecord((prev) => {
+      if (prev && (prev.id === recordId || prev.caseId === recordId)) {
+        return null;
+      }
+      return prev;
+    });
+  };
+
   const handleUpdateRecord = (updatedRecord: ScreeningRecord) => {
+    const doctorOwnerId = activeDoctor?.id || DEMO_DOCTOR.id;
     setSelectedRecord(updatedRecord);
-    setRecords((prev) => prev.map((r) => (r.id === updatedRecord.id ? updatedRecord : r)));
+    setRecords((prev) => {
+      const updated = prev.map((r) => (r.id === updatedRecord.id ? updatedRecord : r));
+      saveDoctorRecords(doctorOwnerId, updated);
+      return updated;
+    });
   };
 
   const handleToggleSignRecord = () => {
     if (!selectedRecord) return;
     const isSigned = !selectedRecord.cytopathologistSigned;
+    const doctorDisplayName = activeDoctor 
+      ? `${activeDoctor.name}, ${activeDoctor.specialization}` 
+      : 'Consultant Cytopathologist, MD';
+
     const updated: ScreeningRecord = {
       ...selectedRecord,
       cytopathologistSigned: isSigned,
       status: isSigned ? 'Reviewed & Signed' : 'Pending Cytopathologist Review',
-      signedBy: isSigned ? doctorName : undefined,
+      signedBy: isSigned ? doctorDisplayName : undefined,
       signedAt: isSigned ? new Date().toISOString() : undefined,
     };
     handleUpdateRecord(updated);
@@ -177,6 +277,7 @@ export default function App() {
         setCurrentScreen={setCurrentScreen}
         isLoggedIn={isLoggedIn}
         onLogout={handleLogout}
+        doctor={activeDoctor}
         onToggleChat={() => setIsChatOpen((prev) => !prev)}
         isChatOpen={isChatOpen}
       />
@@ -184,7 +285,7 @@ export default function App() {
       {/* Main Dynamic Viewport */}
       <main className="flex-1 print:p-0 print:m-0">
         {!isLoggedIn && (
-          <LoginScreen onLogin={handleLogin} />
+          <LoginScreen onLoginSuccess={handleLoginSuccess} />
         )}
 
         {isLoggedIn && currentScreen === 'dashboard' && (
@@ -192,6 +293,8 @@ export default function App() {
             records={records}
             onSelectRecord={handleSelectRecord}
             onNavigate={setCurrentScreen}
+            doctor={activeDoctor}
+            onDeleteRecord={handleDeleteRecord}
           />
         )}
 
@@ -222,6 +325,7 @@ export default function App() {
             record={selectedRecord}
             onUpdateRecord={handleUpdateRecord}
             onNavigate={setCurrentScreen}
+            doctor={activeDoctor}
           />
         )}
 
@@ -230,6 +334,7 @@ export default function App() {
             record={selectedRecord}
             onNavigate={setCurrentScreen}
             onToggleSignRecord={handleToggleSignRecord}
+            doctor={activeDoctor}
           />
         )}
 
@@ -238,6 +343,8 @@ export default function App() {
             records={records}
             onSelectRecord={handleSelectRecord}
             onNavigate={setCurrentScreen}
+            doctor={activeDoctor}
+            onDeleteRecord={handleDeleteRecord}
           />
         )}
 

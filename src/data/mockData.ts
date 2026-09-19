@@ -358,7 +358,7 @@ export const INITIAL_SCREENING_RECORDS: ScreeningRecord[] = [
     urgencyLevel: 'Routine',
     status: 'Reviewed & Signed',
     cytopathologistSigned: true,
-    signedBy: 'Dr. Ananya Sharma, MD Pathology',
+    signedBy: 'Dr. Vikramaditya Rao, MD (Cytopathology)',
     signedAt: '2026-09-05 16:30 IST',
     clinicalSummary: 'Well-spread liquid-based preparation displaying mature superficial and intermediate squamous epithelial cells. Nuclei are round, uniform, with delicate pale vesicular chromatin and low N:C ratio. No evidence of cellular atypia or fungal/trichomonas organisms.',
     cellularMorphology: {
@@ -478,7 +478,7 @@ export const INITIAL_SCREENING_RECORDS: ScreeningRecord[] = [
     urgencyLevel: 'Routine',
     status: 'Reviewed & Signed',
     cytopathologistSigned: true,
-    signedBy: 'Dr. Ananya Sharma, MD Pathology',
+    signedBy: 'Dr. Vikramaditya Rao, MD (Cytopathology)',
     signedAt: '2026-09-01 14:10 IST',
     clinicalSummary: 'Adequate sample with endocervical transformation zone component present. Normal squamous and glandular elements observed with benign reactive reparative changes.',
     cellularMorphology: {
