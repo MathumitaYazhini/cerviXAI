@@ -10,7 +10,6 @@ import {
   Microscope, 
   Eye, 
   FileText, 
-  Lock, 
   ExternalLink,
   Info
 } from 'lucide-react';
@@ -201,29 +200,8 @@ export const AnalysisReportScreen: React.FC<AnalysisReportScreenProps> = ({
         </div>
       </div>
 
-      {/* Signing Guidance Notice */}
-      {!isSigned ? (
-        <div className="p-4 bg-[#F5F0E8] border border-[#DCD4C7] rounded-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs text-[#2F3A3D]">
-          <div className="flex items-start space-x-2.5">
-            <Lock className="w-4 h-4 text-[#B85C38] mt-0.5 shrink-0" />
-            <div>
-              <p className="font-semibold text-[#2F3A3D]">
-                Awaiting Doctor's Digital Signature
-              </p>
-              <p className="text-[11px] text-[#5B6B6F] mt-0.5">
-                Review the XAI evaluation and morphology findings below. The official clinical PDF report will be generated and made available for viewing and download once signed.
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={handleSignReport}
-            className="self-start sm:self-auto px-3.5 py-1.5 rounded bg-[#B85C38] text-white text-xs font-semibold hover:bg-[#964726] transition-colors shrink-0 shadow-xs"
-          >
-            Sign Digitally Now
-          </button>
-        </div>
-      ) : (
+      {/* Signed Status Notification */}
+      {isSigned && (
         <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs text-emerald-900">
           <div className="flex items-center space-x-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />

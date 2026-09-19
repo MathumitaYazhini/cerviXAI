@@ -16,11 +16,9 @@ import {
   Info,
   ShieldCheck,
   SplitSquareVertical,
-  Crosshair,
-  Download
+  Crosshair
 } from 'lucide-react';
 import { generateCellSvg } from '../data/mockData';
-import { downloadClinicalPdf } from '../utils/pdfExport';
 
 interface PredictionHeatmapScreenProps {
   record: ScreeningRecord;
@@ -40,20 +38,6 @@ export const PredictionHeatmapScreen: React.FC<PredictionHeatmapScreenProps> = (
   const [viewMode, setViewMode] = useState<'overlay' | 'original' | 'heatmapOnly' | 'split'>('overlay');
   const [zoomLevel, setZoomLevel] = useState<number>(1);
   const [activeFocalPoint, setActiveFocalPoint] = useState<number | null>(null);
-  const [isDownloadingPdf, setIsDownloadingPdf] = useState<boolean>(false);
-
-  const handleDownloadPdf = async () => {
-    setIsDownloadingPdf(true);
-    try {
-      await downloadClinicalPdf(record);
-    } catch (err) {
-      console.error('Failed to download PDF:', err);
-    } finally {
-      setTimeout(() => {
-        setIsDownloadingPdf(false);
-      }, 1000);
-    }
-  };
 
   const isHighRisk = record.predictedClass === 'HSIL' || record.predictedClass === 'SCC';
   const uncertaintyThreshold = record.uncertaintyThreshold ?? 0.200;
@@ -165,18 +149,6 @@ export const PredictionHeatmapScreen: React.FC<PredictionHeatmapScreenProps> = (
           >
             <AlertTriangle className="w-4 h-4 mr-1.5" />
             <span>Triage ({record.referToDoctor ? 'REFERRAL' : 'CLEARED'})</span>
-          </button>
-
-          <button
-            type="button"
-            id="heatmap-btn-download-pdf"
-            onClick={handleDownloadPdf}
-            disabled={isDownloadingPdf}
-            className="inline-flex items-center px-3.5 py-2 rounded-md text-xs sm:text-sm font-medium text-[#2F3A3D] bg-[#ECE4D6] hover:bg-[#DCD4C7] transition-colors shadow-xs cursor-pointer disabled:opacity-70"
-            title="Download Clinical Report PDF with dynamic Grad-CAM++ Heatmap"
-          >
-            <Download className="w-4 h-4 mr-1.5 text-[#B85C38]" />
-            <span>{isDownloadingPdf ? 'Generating PDF...' : 'Download PDF'}</span>
           </button>
 
           <button
