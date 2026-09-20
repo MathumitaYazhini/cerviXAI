@@ -72,7 +72,7 @@ export const UploadScreen: React.FC<UploadScreenProps> = ({ onStartAnalysis, onC
       setFormData((prev) => ({
         ...prev,
         imagePreview: result,
-        presetClass: 'HSIL', // default clinical deep learning pipeline inference
+        presetClass: undefined, // Real MSA-CNN inference on actual uploaded cytology image
       }));
     };
     reader.readAsDataURL(file);

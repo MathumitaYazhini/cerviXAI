@@ -148,9 +148,14 @@ export const ProcessingScreen: React.FC<ProcessingScreenProps> = ({
           clearInterval(interval);
           if (!isCompletedRef.current) {
             isCompletedRef.current = true;
-            setTimeout(() => {
-              onComplete(analysisResultRef.current?.record);
-            }, 450);
+            const completeWhenReady = () => {
+              if (analysisResultRef.current?.record) {
+                onComplete(analysisResultRef.current.record);
+              } else {
+                setTimeout(completeWhenReady, 100);
+              }
+            };
+            setTimeout(completeWhenReady, 350);
           }
           return prev;
         }
@@ -163,7 +168,16 @@ export const ProcessingScreen: React.FC<ProcessingScreenProps> = ({
   const handleFastForward = () => {
     if (!isCompletedRef.current) {
       isCompletedRef.current = true;
-      onComplete(analysisResultRef.current?.record);
+      if (analysisResultRef.current?.record) {
+        onComplete(analysisResultRef.current.record);
+      } else {
+        const checkInterval = setInterval(() => {
+          if (analysisResultRef.current?.record) {
+            clearInterval(checkInterval);
+            onComplete(analysisResultRef.current.record);
+          }
+        }, 50);
+      }
     }
   };
 

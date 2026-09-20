@@ -347,9 +347,9 @@ export const AnalysisReportScreen: React.FC<AnalysisReportScreenProps> = ({
                 {record.specimenInfo || 'Liquid-Based Cytology (LBC) / Conventional Pap'}
               </span>
             </div>
-            <div className="sm:col-span-2">
-              <span className="text-[#5B6B6F] block text-[11px]">Financial Scheme Tariff:</span>
-              <span className="font-semibold text-[#535846]">
+            <div className="sm:col-span-2 min-w-0">
+              <span className="text-[#5B6B6F] block text-[11px]">Financial Scheme / Tariff:</span>
+              <span className="font-semibold text-[#535846] block break-words whitespace-normal leading-snug">
                 {record.isAyushmanCovered 
                   ? `Ayushman Bharat PM-JAY Subsidized (₹${record.subsidizedFeeInr} - Zero Out-of-Pocket)` 
                   : 'Standard Institutional Cytopathology Tariff'}

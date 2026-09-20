@@ -11,6 +11,7 @@ import {
   HelpCircle
 } from 'lucide-react';
 import { ChatMessage, ScreeningRecord } from '../types';
+import { generateContextAwareChatReply } from '../utils/clinicalChatbotEngine';
 
 interface ChatbotDrawerProps {
   isOpen: boolean;
@@ -82,14 +83,53 @@ export const ChatbotDrawer: React.FC<ChatbotDrawerProps> = ({
           activeRecord: activeRecord
             ? {
                 sampleId: activeRecord.sampleId,
+                caseId: activeRecord.caseId,
                 patientName: activeRecord.patientName,
+                age: activeRecord.age,
+                district: activeRecord.district,
+                state: activeRecord.state,
                 predictedClass: activeRecord.predictedClass,
                 classFullName: activeRecord.classFullName,
                 confidence: activeRecord.confidence,
                 calibratedConfidence: activeRecord.calibratedConfidence,
                 uncertaintyScore: activeRecord.uncertaintyScore,
+                uncertaintyThreshold: activeRecord.uncertaintyThreshold ?? 0.200,
+                classProbabilities: activeRecord.classProbabilities,
                 referToDoctor: activeRecord.referToDoctor,
+                referralStatusLabel: activeRecord.referralStatusLabel,
+                referralReason: activeRecord.referralReason,
+                urgencyLevel: activeRecord.urgencyLevel,
+                recommendation: activeRecord.recommendation,
                 morphology: activeRecord.cellularMorphology,
+                attentionFocalPoints: activeRecord.attentionFocalPoints,
+                supportedMorphologicalFindings: activeRecord.supportedMorphologicalFindings,
+                explainabilitySummary: activeRecord.explainabilitySummary,
+              }
+            : undefined,
+          currentAnalysis: activeRecord
+            ? {
+                sampleId: activeRecord.sampleId,
+                caseId: activeRecord.caseId,
+                patientName: activeRecord.patientName,
+                age: activeRecord.age,
+                district: activeRecord.district,
+                state: activeRecord.state,
+                predictedClass: activeRecord.predictedClass,
+                classFullName: activeRecord.classFullName,
+                confidence: activeRecord.confidence,
+                calibratedConfidence: activeRecord.calibratedConfidence,
+                uncertaintyScore: activeRecord.uncertaintyScore,
+                uncertaintyThreshold: activeRecord.uncertaintyThreshold ?? 0.200,
+                classProbabilities: activeRecord.classProbabilities,
+                referToDoctor: activeRecord.referToDoctor,
+                referralStatusLabel: activeRecord.referralStatusLabel,
+                referralReason: activeRecord.referralReason,
+                urgencyLevel: activeRecord.urgencyLevel,
+                recommendation: activeRecord.recommendation,
+                morphology: activeRecord.cellularMorphology,
+                attentionFocalPoints: activeRecord.attentionFocalPoints,
+                supportedMorphologicalFindings: activeRecord.supportedMorphologicalFindings,
+                explainabilitySummary: activeRecord.explainabilitySummary,
               }
             : undefined,
         }),
@@ -108,12 +148,35 @@ export const ChatbotDrawer: React.FC<ChatbotDrawerProps> = ({
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (err) {
       console.error('Chat error:', err);
-      const queryLower = text.toLowerCase();
-      let fallbackContent = `Under The Bethesda System 2014, **${activeRecord ? activeRecord.predictedClass : 'cervical cytology'}** requires careful correlation between nuclear-to-cytoplasmic (N:C) ratio and chromatin distribution. When uncertainty exceeds 0.20 entropy, selective prediction defaults to manual cytopathologist review.`;
-      
-      if (queryLower.includes('hotspot') || queryLower.includes('grad-cam') || queryLower.includes('heatmap')) {
-        fallbackContent = `Highlighted regions indicate areas that contributed strongly to the model's prediction. In this region, the model's attention is associated with the morphological characteristics identified during analysis (such as nuclear enlargement, hyperchromasia, and nuclear membrane irregularity). Model attention was concentrated primarily on nuclear regions showing features associated with the predicted classification (${activeRecord?.predictedClass || 'TBS category'}). AI-generated findings are intended to support qualified clinical review and should not be used as a standalone diagnosis.`;
-      }
+      const fallbackContent = generateContextAwareChatReply(
+        text,
+        activeRecord
+          ? {
+              sampleId: activeRecord.sampleId,
+              caseId: activeRecord.caseId,
+              patientName: activeRecord.patientName,
+              age: activeRecord.age,
+              district: activeRecord.district,
+              state: activeRecord.state,
+              predictedClass: activeRecord.predictedClass,
+              classFullName: activeRecord.classFullName,
+              confidence: activeRecord.confidence,
+              calibratedConfidence: activeRecord.calibratedConfidence,
+              uncertaintyScore: activeRecord.uncertaintyScore,
+              uncertaintyThreshold: activeRecord.uncertaintyThreshold ?? 0.200,
+              classProbabilities: activeRecord.classProbabilities,
+              referToDoctor: activeRecord.referToDoctor,
+              referralStatusLabel: activeRecord.referralStatusLabel,
+              referralReason: activeRecord.referralReason,
+              urgencyLevel: activeRecord.urgencyLevel,
+              recommendation: activeRecord.recommendation,
+              morphology: activeRecord.cellularMorphology,
+              attentionFocalPoints: activeRecord.attentionFocalPoints,
+              supportedMorphologicalFindings: activeRecord.supportedMorphologicalFindings,
+              explainabilitySummary: activeRecord.explainabilitySummary,
+            }
+          : null
+      );
 
       const fallbackMessage: ChatMessage = {
         id: `assistant-${Date.now()}`,

@@ -418,15 +418,25 @@ export function buildClinicalPdfDocument(
   // -------------------------------------------------------------
   // 1. PATIENT / CASE INFORMATION
   // -------------------------------------------------------------
-  const demoHeight = 22.0;
-  doc.setFillColor(250, 247, 242);
-  doc.setDrawColor(220, 212, 199);
-  doc.roundedRect(margin, currentY, contentWidth, demoHeight, 2, 2, 'FD');
-
   const c1 = margin + 3.5;
   const c2 = margin + 49;
   const c3 = margin + 95;
   const c4 = margin + 142;
+
+  const tariff = record.isAyushmanCovered
+    ? `Ayushman Bharat PM-JAY Subsidized (₹${record.subsidizedFeeInr} - Zero Out-of-Pocket)`
+    : 'Standard Institutional Cytopathology Tariff';
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.2);
+  const maxTariffWidth = margin + contentWidth - 3.5 - c3;
+  const tariffLines = doc.splitTextToSize(tariff, maxTariffWidth);
+  const isMultiLineTariff = Array.isArray(tariffLines) && tariffLines.length > 1;
+  const demoHeight = isMultiLineTariff ? 25.0 : 22.0;
+
+  doc.setFillColor(250, 247, 242);
+  doc.setDrawColor(220, 212, 199);
+  doc.roundedRect(margin, currentY, contentWidth, demoHeight, 2, 2, 'FD');
 
   // Row 1: Demographics
   doc.setFont('helvetica', 'normal');
@@ -480,14 +490,11 @@ export function buildClinicalPdfDocument(
   doc.setTextColor(91, 107, 111);
   doc.text('Financial Scheme / Tariff:', c3, currentY + 13.8);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7.5);
+  doc.setFontSize(7.2);
   doc.setTextColor(83, 88, 70);
-  const tariff = record.isAyushmanCovered
-    ? `Ayushman Bharat PM-JAY Subsidized (₹${record.subsidizedFeeInr} - Zero Out-of-Pocket)`
-    : 'Standard Institutional Cytopathology Tariff';
-  doc.text(tariff, c3, currentY + 18.0);
+  doc.text(tariffLines, c3, currentY + 17.5, { lineHeightFactor: 1.15 });
 
-  currentY += demoHeight + 3.0;
+  currentY += demoHeight + 2.5;
 
   // -------------------------------------------------------------
   // 2. AI SCREENING RESULT BANNER (TBS 2014)

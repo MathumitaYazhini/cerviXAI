@@ -43,6 +43,7 @@ export interface ScreeningRecord {
   hpvStatus?: 'HPV-16 Positive' | 'HPV-18 Positive' | 'High-Risk Non-16/18' | 'HPV Negative' | 'Awaiting PCR';
   predictedClass: BethesdaClass;
   classFullName: string;
+  classProbabilities?: { className: BethesdaClass; probability: number }[];
   confidence: number; // 0.0 - 1.0 (Raw confidence)
   calibratedConfidence: number; // 0.0 - 1.0 after temperature scaling
   temperatureFactor?: number;

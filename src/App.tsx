@@ -109,46 +109,6 @@ export default function App() {
       return;
     }
 
-    // Determine predicted class based on preset or default
-    const predClass = currentUploadData.presetClass || 'HSIL';
-    let classFullName = 'High-Grade Squamous Intraepithelial Lesion';
-    let conf = 0.94;
-    let calConf = 0.89;
-    let entropy = 0.08;
-    let refer = true;
-    let urgency: 'Urgent' | 'Moderate' | 'Routine' | 'Critical' = 'Urgent';
-    let referralReason = 'High-grade dysplastic cellular pattern detected. High probability of HSIL requiring immediate colposcopy.';
-    let recommendation = 'Urgent referral for colposcopy examination and directed cervical punch biopsy within 7-14 days.';
-
-    if (predClass === 'NILM') {
-      classFullName = 'Negative for Intraepithelial Lesion or Malignancy';
-      conf = 0.97;
-      calConf = 0.95;
-      entropy = 0.04;
-      refer = false;
-      urgency = 'Routine';
-      referralReason = 'Benign cellular changes with normal intermediate and superficial squamous cells. Meets autonomous clearance criteria.';
-      recommendation = 'Routine cervical cancer screening repeat in 3 years as per national guidelines. Maintain routine wellness surveillance.';
-    } else if (predClass === 'ASC-US') {
-      classFullName = 'Atypical Squamous Cells of Undetermined Significance';
-      conf = 0.74;
-      calConf = 0.68;
-      entropy = 0.38;
-      refer = true;
-      urgency = 'Routine';
-      referralReason = 'Prediction entropy (0.38) exceeds safe autonomous clearance boundary (0.20). Slide exhibits ambiguous nuclear enlargement.';
-      recommendation = 'Reflex colposcopy triage recommended; if negative, schedule repeat cytology in 12 months.';
-    } else if (predClass === 'LSIL') {
-      classFullName = 'Low-Grade Squamous Intraepithelial Lesion';
-      conf = 0.88;
-      calConf = 0.83;
-      entropy = 0.17;
-      refer = true;
-      urgency = 'Routine';
-      referralReason = 'Perinuclear cavitation and koilocytosis characteristic of transient low-grade dysplastic cytopathic effect.';
-      recommendation = 'Colposcopy evaluation recommended, or repeat cytological evaluation at 6 months to evaluate spontaneous clearance.';
-    }
-
     const patientAge = typeof currentUploadData.age === 'number' 
       ? currentUploadData.age 
       : parseInt(String(currentUploadData.age), 10) || 35;
@@ -156,11 +116,22 @@ export default function App() {
     const doctorOwnerId = activeDoctor?.id || DEMO_DOCTOR.id;
     const generatedCaseId = generateNextCaseId(doctorOwnerId);
 
+    // Prioritize genuine MSA-CNN pipeline inference output
+    const predClass = pipelineRecord?.predictedClass || currentUploadData.presetClass || 'HSIL';
+    const classFullName = pipelineRecord?.classFullName || 'High-Grade Squamous Intraepithelial Lesion';
+    const conf = pipelineRecord?.confidence ?? 0.94;
+    const calConf = pipelineRecord?.calibratedConfidence ?? 0.89;
+    const entropy = pipelineRecord?.uncertaintyScore ?? 0.08;
+    const refer = pipelineRecord?.referToDoctor ?? true;
+    const urgency = (pipelineRecord?.urgencyLevel as any) || 'Urgent';
+    const referralReason = pipelineRecord?.referralReason || 'High-grade dysplastic cellular pattern detected.';
+    const recommendation = pipelineRecord?.recommendation || 'Urgent referral for colposcopy examination.';
+
     const newRecord: ScreeningRecord = {
       id: pipelineRecord?.id || `rec-${Date.now()}`,
-      caseId: generatedCaseId,
+      caseId: pipelineRecord?.caseId || generatedCaseId,
       doctorId: doctorOwnerId,
-      sampleId: generatedCaseId,
+      sampleId: pipelineRecord?.sampleId || generatedCaseId,
       patientName: currentUploadData.patientName.trim() || 'Screened Patient',
       age: patientAge,
       district: currentUploadData.district.trim() || 'General District',
@@ -172,22 +143,27 @@ export default function App() {
       cellImageUrl: pipelineRecord?.cellImageUrl || currentUploadData.imagePreview || ('data:image/svg+xml;utf8,' + encodeURIComponent(generateCellSvg(predClass, false))),
       heatmapImageUrl: pipelineRecord?.heatmapImageUrl || ('data:image/svg+xml;utf8,' + encodeURIComponent(generateCellSvg(predClass, true))),
       blendedHeatmapUrl: pipelineRecord?.blendedHeatmapUrl || pipelineRecord?.heatmapImageUrl || ('data:image/svg+xml;utf8,' + encodeURIComponent(generateCellSvg(predClass, true))),
-      predictedClass: pipelineRecord?.predictedClass || predClass,
-      classFullName: pipelineRecord?.classFullName || classFullName,
-      confidence: pipelineRecord?.confidence ?? conf,
-      calibratedConfidence: pipelineRecord?.calibratedConfidence ?? calConf,
+      predictedClass: predClass,
+      classFullName: classFullName,
+      classProbabilities: pipelineRecord?.classProbabilities,
+      confidence: conf,
+      calibratedConfidence: calConf,
       temperatureFactor: 1.35,
-      uncertaintyScore: pipelineRecord?.uncertaintyScore ?? entropy,
-      referToDoctor: pipelineRecord?.referToDoctor ?? refer,
-      urgencyLevel: (pipelineRecord?.urgencyLevel as any) || urgency,
-      referralReason: pipelineRecord?.referralReason || referralReason,
-      clinicalSummary: pipelineRecord?.clinicalSummary || `Digital cytopathology evaluation reveals characteristic ${predClass} cellular morphology. Dual-scale attention highlights hyperchromatic nuclear atypia.`,
+      temperatureScaleFactor: 1.35,
+      uncertaintyScore: entropy,
+      uncertaintyThreshold: pipelineRecord?.uncertaintyThreshold ?? 0.200,
+      referralStatusLabel: pipelineRecord?.referralStatusLabel,
+      referralStatusExplanation: pipelineRecord?.referralStatusExplanation,
+      referToDoctor: refer,
+      urgencyLevel: urgency,
+      referralReason: referralReason,
+      clinicalSummary: pipelineRecord?.clinicalSummary || `Digital cytopathology evaluation reveals characteristic ${predClass} cellular morphology. Multi-scale attention isolates cellular atypia.`,
       cellularMorphology: pipelineRecord?.cellularMorphology || {
-        nuclearEnlargement: predClass === 'NILM' ? 'Normal (~8µm)' : 'Enlarged 2.5-3x normal intermediate nucleus',
-        chromatinPattern: predClass === 'NILM' ? 'Finely granular and evenly dispersed' : 'Coarse chromatin clumping with hyperchromasia',
-        nuclearMembrane: predClass === 'NILM' ? 'Smooth, oval, uniform' : 'Irregular, notched, thickened contours',
-        ncRatio: predClass === 'NILM' ? 'Normal low N:C ratio' : 'Significantly elevated N:C ratio',
-        cytoplasm: 'Standard squamous differentiation',
+        nuclearEnlargement: predClass === 'NILM' ? 'Normal (~8µm)' : 'Enlarged intermediate nucleus',
+        chromatinPattern: predClass === 'NILM' ? 'Finely granular and evenly dispersed' : 'Coarse chromatin clumping',
+        nuclearMembrane: predClass === 'NILM' ? 'Smooth, oval, uniform' : 'Irregular contours',
+        ncRatio: predClass === 'NILM' ? 'Normal low N:C ratio' : 'Elevated N:C ratio',
+        cytoplasm: 'Squamous differentiation',
       },
       attentionFocalPoints: (pipelineRecord?.attentionFocalPoints && pipelineRecord.attentionFocalPoints.length > 0)
         ? pipelineRecord.attentionFocalPoints
@@ -198,7 +174,7 @@ export default function App() {
           ],
       supportedMorphologicalFindings: pipelineRecord?.supportedMorphologicalFindings,
       explainabilitySummary: pipelineRecord?.explainabilitySummary,
-      recommendation: pipelineRecord?.recommendation || recommendation,
+      recommendation: recommendation,
       status: 'Pending Cytopathologist Review',
       cytopathologistSigned: false,
       signedBy: undefined,

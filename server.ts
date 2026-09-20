@@ -3,6 +3,7 @@ import path from 'path';
 import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
 import { createServer as createViteServer } from 'vite';
+import { generateContextAwareChatReply } from './src/utils/clinicalChatbotEngine';
 
 dotenv.config();
 
@@ -128,25 +129,12 @@ Provide a detailed, professional medical cytopathology assessment formatted in s
 // Gemini Doctor Assistant Chatbot API
 app.post('/api/gemini/chat', async (req, res) => {
   try {
-    const { message, history = [], currentAnalysis } = req.body;
+    const { message, history = [], currentAnalysis, activeRecord } = req.body;
+    const analysis = currentAnalysis || activeRecord;
     const ai = getGeminiClient();
 
     if (!ai) {
-      // Fallback simulated intelligent clinical cytopathology responses
-      const queryLower = (message || '').toLowerCase();
-      let reply = '';
-      if (queryLower.includes('heatmap') || queryLower.includes('grad-cam') || queryLower.includes('hotspot')) {
-        reply = `Highlighted regions indicate areas that contributed strongly to the model's prediction. In this region, the model's attention is associated with the morphological characteristics identified during analysis (such as nuclear enlargement, hyperchromatic chromatin distribution, and irregular nuclear envelope contour). Model attention was concentrated primarily on nuclear regions showing features associated with the predicted classification (${currentAnalysis?.predictedClass || 'abnormal lesion'}). AI-generated findings are intended to support qualified clinical review and should not be used as a standalone diagnosis.`;
-      } else if (queryLower.includes('uncertain') || queryLower.includes('refer') || queryLower.includes('threshold')) {
-        reply = `CerviXAI utilizes selective prediction with temperature scaling (T=1.35). When the model's calibrated confidence drops below 82% or the softmax entropy exceeds 0.18, the case is automatically flagged with 'Refer to Cytopathologist'. This safeguards against misclassifying borderline atypia (such as ASC-US versus reactive changes) and ensures that all ambiguous slides receive human expert verification.`;
-      } else if (queryLower.includes('bethesda') || queryLower.includes('classification')) {
-        reply = `The Bethesda System 2014 categorizes epithelial cell abnormalities into NILM (Negative for Intraepithelial Lesion/Malignancy), ASC-US (Atypical Squamous Cells of Undetermined Significance), ASC-H (cannot rule out HSIL), LSIL (Low-grade Squamous Intraepithelial Lesion), HSIL (High-grade), and SCC (Squamous Cell Carcinoma). Our multi-scale attention backbone extracts both macro architectural context and sub-micron nuclear textures to distinguish these stages.`;
-      } else if (queryLower.includes('treatment') || queryLower.includes('management') || queryLower.includes('next')) {
-        reply = `Under national Indian screening protocols (PM-JAY / ICMR guidelines): For NILM with negative HPV, routine recall in 3-5 years is advised. For persistent ASC-US or LSIL with high-risk HPV (HPV 16/18), reflex colposcopy is indicated. For HSIL or suspected SCC, immediate colposcopy and directed cervical punch biopsy/LEEP triage is recommended without delay.`;
-      } else {
-        reply = `Based on the current patient scan (${currentAnalysis?.patientName || 'Screening Subject'}, classified as ${currentAnalysis?.predictedClass || 'reviewed specimen'}), the cellular attention map indicates ${currentAnalysis?.uncertainty > 0.2 ? 'borderline nuclear pleomorphism requiring manual cytopathologist review' : 'high-confidence concordant features'}. Would you like me to elaborate on the nuclear-cytoplasmic ratio, chromatin distribution, or management triage?`;
-      }
-
+      const reply = generateContextAwareChatReply(message, analysis);
       return res.json({
         success: true,
         reply,
@@ -154,23 +142,51 @@ app.post('/api/gemini/chat', async (req, res) => {
       });
     }
 
-    const systemInstruction = `You are CerviXAI Assistant, an advanced medical AI cytopathology copilot designed for cytopathologists, gynecologists, and screening medical officers in India.
-Your role:
-1. Explain Pap smear cytology findings based on The Bethesda System for Reporting Cervical Cytology (TBS 2014).
-2. Clarify multi-scale attention deep learning outputs, Grad-CAM++ saliency heatmaps, and why certain cell regions triggered predictions.
-3. Detail selective prediction, temperature scaling, and why uncertain cases are referred for secondary human cytopathologist review.
-4. Provide evidence-based clinical next steps aligned with ICMR (Indian Council of Medical Research), WHO, and Federation of Obstetric and Gynaecological Societies of India (FOGSI) guidelines.
-5. Maintain a professional, respectful, physician-to-physician clinical dialogue. Never give generic consumer medical disclaimers; speak as a clinical specialist tool.
+    const hasAnalysis = Boolean(analysis && analysis.predictedClass);
+    const probList = analysis?.classProbabilities
+      ? analysis.classProbabilities.map((cp: any) => `${cp.className}: ${(cp.probability * 100).toFixed(1)}%`).join(', ')
+      : 'N/A';
 
-Current Patient Context:
-${JSON.stringify(currentAnalysis || {}, null, 2)}`;
+    const focalPointsStr = analysis?.attentionFocalPoints
+      ? JSON.stringify(analysis.attentionFocalPoints, null, 2)
+      : 'N/A';
+
+    const systemInstruction = `You are CerviXAI Clinical Copilot, an expert AI cytopathology assistant designed for cytopathologists, gynecologists, and screening medical officers in India.
+
+CRITICAL INSTRUCTIONS:
+1. When asked about the CURRENT analyzed specimen, patient, diagnosis, confidence, class probabilities, uncertainty, Grad-CAM heatmap, or morphology, you MUST STRICTLY use the authentic case telemetry provided below. NEVER hallucinate or invent conflicting percentages, classes, or features.
+2. When asked general educational or architectural questions (e.g. "What is MSA-CNN?", "How does Grad-CAM++ work?", "What is The Bethesda System?", "What is temperature scaling?"), provide clear, scientifically rigorous, evidence-based answers.
+3. If no specimen is loaded (${hasAnalysis ? 'a specimen IS currently analyzed' : 'NO specimen is currently loaded'}), clarify that no slide is active when asked about the image, and answer general screening questions.
+4. Maintain a professional, respectful, physician-to-physician clinical dialogue. Never give generic consumer medical disclaimers; speak as a clinical specialist tool.
+
+AUTHENTIC PATIENT SPECIMEN TELEMETRY:
+${hasAnalysis ? `
+- Case / Sample ID: ${analysis.sampleId || analysis.caseId || 'Current Case'}
+- Patient Name: ${analysis.patientName || 'Screened Patient'} (Age: ${analysis.age || 'N/A'}, District: ${analysis.district || 'General'}, State: ${analysis.state || 'India'})
+- The Bethesda System (TBS 2014) Predicted Class: ${analysis.predictedClass} (${analysis.classFullName || analysis.predictedClass})
+- Raw Softmax Confidence: ${analysis.confidence !== undefined ? (analysis.confidence * 100).toFixed(1) + '%' : 'N/A'}
+- Temperature-Calibrated Confidence (T=1.35): ${analysis.calibratedConfidence !== undefined ? (analysis.calibratedConfidence * 100).toFixed(1) + '%' : 'N/A'}
+- Predictive Uncertainty (Shannon Entropy): ${analysis.uncertaintyScore !== undefined ? analysis.uncertaintyScore.toFixed(3) : 'N/A'} (Screening Threshold: 0.200)
+- Full Bethesda Softmax Class Probabilities Distribution: ${probList}
+- Selective Prediction Referral Status: ${analysis.referToDoctor ? 'Review Recommended / Refer to Cytopathologist' : 'Model Prediction Stable'}
+- Referral Reason: ${analysis.referralReason || 'N/A'}
+- Clinical Recommendation: ${analysis.recommendation || 'N/A'}
+- Cellular Morphological Findings:
+  * Nuclear Enlargement: ${analysis.morphology?.nuclearEnlargement || 'N/A'}
+  * Chromatin Pattern: ${analysis.morphology?.chromatinPattern || 'N/A'}
+  * Nuclear Membrane: ${analysis.morphology?.nuclearMembrane || 'N/A'}
+  * N:C Ratio: ${analysis.morphology?.ncRatio || 'N/A'}
+  * Cytoplasm: ${analysis.morphology?.cytoplasm || 'N/A'}
+- Grad-CAM++ Attention Focal Points & Saliency:
+${focalPointsStr}
+` : 'NO SPECIMEN LOADED YET.'}`;
 
     // Build chat
     const chat = ai.chats.create({
-      model: 'gemini-3.8-flash',
+      model: 'gemini-2.5-flash',
       config: {
         systemInstruction,
-        temperature: 0.3,
+        temperature: 0.2,
       },
     });
 
@@ -178,14 +194,25 @@ ${JSON.stringify(currentAnalysis || {}, null, 2)}`;
     return res.json({
       success: true,
       reply: response.text || 'No response received from clinical model.',
-      source: 'gemini-3.8-flash',
+      source: 'gemini-2.5-flash',
     });
   } catch (error: any) {
     console.error('Chat error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to process chat consultation',
-    });
+    try {
+      const { message, currentAnalysis, activeRecord } = req.body;
+      const analysis = currentAnalysis || activeRecord;
+      const reply = generateContextAwareChatReply(message, analysis);
+      return res.json({
+        success: true,
+        reply,
+        source: 'local-clinical-engine',
+      });
+    } catch {
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to process chat consultation',
+      });
+    }
   }
 });
 
